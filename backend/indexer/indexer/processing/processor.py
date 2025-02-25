@@ -1,6 +1,6 @@
 from typing import Tuple, Optional, Dict, Any, List
 
-
+from indexer.indexer.processing.factory import ComponentFactory
 from indexer.indexer.storage.base import GCSBaseHandler
 from indexer.indexer.database.models.status import ProcessingStatus
 from indexer.indexer.database.operations.manager import DatabaseManager
@@ -15,18 +15,23 @@ class BlockProcessor:
     """
     
     def __init__(self, 
-                 gcs_handler: GCSBaseHandler, 
-                 status_tracker: DatabaseManager,
+                 gcs_handler: Optional[GCSBaseHandler] = None, 
+                 status_tracker: Optional[DatabaseManager] = None,
                  validator: Optional[BlockValidator] = None,
-                 decoder: Optional[BlockDecoder] = None, # TODO: Needs a default registry?
+                 decoder: Optional[BlockDecoder] = None,
                  handler: Optional[BlockHandler] = None):
 
-        self.gcs_handler = gcs_handler
-        self.status_tracker = status_tracker
-        # Create defaults for components if not provided
-        self.validator = validator or BlockValidator()
-        self.decoder = decoder or BlockDecoder()
+        self.gcs_handler = gcs_handler or ComponentFactory.get_gcs_handler()
+        self.status_tracker = status_tracker or ComponentFactory.get_database_manager()
+        self.validator = validator or ComponentFactory.get_block_validator()
         self.handler = handler or BlockHandler(gcs_handler)
+
+        if decoder is None:
+            registry = ComponentFactory.get_contract_registry()
+            self.decoder = BlockDecoder(registry)
+        else:
+            self.decoder = decoder
+        
     
     def process_block(self, gcs_path: str) -> Tuple[bool, Dict[str, Any]]:
         """

@@ -1,4 +1,3 @@
-# backend/services/processor/server/main.py
 import os
 import base64
 import json
@@ -6,51 +5,21 @@ from flask import Flask, request, jsonify
 from dotenv import load_dotenv
 import functions_framework
 
-# Load environment variables
 load_dotenv()
 from indexer.indexer.env import env
 
-# Import after loading environment variables
-from indexer.indexer.database.operations.session import ConnectionManager
-from indexer.indexer.database.operations.manager import DatabaseManager
-from indexer.indexer.database.models.status import ProcessingStatus, BlockProcess
-from indexer.indexer.processing.validator import BlockValidator
 from indexer.indexer.processing.processor import BlockProcessor
-from indexer.indexer.decoders.block import BlockDecoder
-from indexer.indexer.storage.base import GCSBaseHandler
-from indexer.indexer.storage.handler import BlockHandler
-# Initialize Flask app
+from indexer.indexer.processing.factory import ComponentFactory
+from indexer.indexer.database.models.status import ProcessingStatus, BlockProcess
+
 app = Flask(__name__)
 
-# Initialize services
-db_manager = DatabaseManager(env.get_db_url())
-status_tracker = DBValidator(db_manager)
-
-# Initialize GCS handler
-gcs_handler = GCSHandler(
-    bucket_name=env.get_bucket_name(),
-    credentials_path=os.getenv("GCS_CREDENTIALS_PATH")
-)
-
-# Initialize individual components
-validator = BlockValidator()
-decoder = BlockDecoder()
-storage = BlockStorage(gcs_handler, 
-                      raw_prefix=os.getenv("GCS_RAW_PREFIX", "raw/"),
-                      decoded_prefix=os.getenv("GCS_DECODED_PREFIX", "decoded/"))
-
-# Initialize block processor
-block_processor = BlockProcessor(
-    gcs_handler=gcs_handler,
-    status_tracker=status_tracker,
-    validator=validator,
-    decoder=decoder,
-    storage=storage
-)
+# Initialize block processor with factory defaults
+block_processor = BlockProcessor()
+db_manager = ComponentFactory.get_database_manager()
 
 @app.route("/", methods=["GET"])
 def health_check():
-    """Simple health check endpoint."""
     return jsonify({"status": "healthy", "service": "block-processor"})
 
 @app.route("/pubsub", methods=["POST"])
@@ -108,14 +77,14 @@ def get_processing_status():
     with db_manager.get_session() as session:
         status_counts = {}
         for status in ProcessingStatus:
-            count = session.query(BlockValidation).filter(
-                BlockValidation.status == status
+            count = session.query(BlockProcess).filter(
+                BlockProcess.status == status
             ).count()
             status_counts[status.value] = count
             
         # Get latest block
-        latest_block = session.query(BlockValidation).order_by(
-            BlockValidation.block_number.desc()
+        latest_block = session.query(BlockProcess).order_by(
+            BlockProcess.block_number.desc()
         ).first()
         
         return jsonify({
@@ -148,6 +117,7 @@ def reprocess_blocks():
     # Otherwise, reprocess invalid blocks
     else:
         limit = data.get("limit", 100)
+        status_tracker = block_processor.status_tracker
         invalid_blocks = status_tracker.get_blocks_by_status(ProcessingStatus.INVALID, limit=limit)
         block_numbers = [block.block_number for block in invalid_blocks]
         

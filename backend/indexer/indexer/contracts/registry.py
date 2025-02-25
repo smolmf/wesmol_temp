@@ -23,10 +23,23 @@ class ContractConfig(Struct):
     abi: list
 
 class ContractRegistry:
+    _instance = None
+
+    @classmethod
+    def get_instance(cls, contracts_file=None, abi_directory=None):
+        if cls._instance is None:
+            if contracts_file is None or abi_directory is None:
+                from indexer.indexer.env import env
+                contracts_file = env.get_path('config_dir') / 'contracts.json'
+                abi_directory = env.get_path('config_dir') / 'abis'
+            cls._instance = cls(contracts_file, abi_directory)
+        return cls._instance
+
     def __init__(self, contracts_file: str, abi_directory: str):
         self.contracts: dict[str, ContractConfig] = {}  # Contracts keyed by address
         self._load_contracts(contracts_file, abi_directory)
         self.abi_decoder = msgspec.json.Decoder(type=ABIConfig)
+
 
     def _load_contracts(self, contracts_file: str, abi_directory: str):
         """Load contract registry and ABIs."""

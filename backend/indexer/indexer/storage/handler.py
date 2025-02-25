@@ -1,15 +1,16 @@
 from typing import Tuple, Optional, Dict, Any, List
 import json
 
+from indexer.indexer.env import env
 from indexer.indexer.storage.base import GCSBaseHandler
 
 class BlockHandler():
     def __init__(self,gcs_handler: GCSBaseHandler,
-                 raw_prefix: str = "quicknode/",
-                 decoded_prefix: str = "decoded/"):
+                 raw_prefix: str = None,
+                 decoded_prefix: str = None):
         self.gcs_handler = gcs_handler
-        self.raw_prefix = raw_prefix
-        self.decoded_prefix = decoded_prefix
+        self.raw_prefix = raw_prefix or env.get_rpc_prefix()
+        self.decoded_prefix = decoded_prefix or env.get_decoded_prefix()
 
     def extract_block_number(self, gcs_path: str) -> int:
         """Extract block number from GCS path."""
