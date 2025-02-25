@@ -1,10 +1,10 @@
 from typing import Optional
 from web3 import Web3
 
-from indexer.indexer.contracts.manager import ContractManager
-from indexer.indexer.model.evm import EvmTransaction, EvmTxReceipt
-from indexer.indexer.model.block import DecodedLog, EncodedLog, EncodedMethod, DecodedMethod, Transaction
-from indexer.indexer.decoders.log import LogDecoder
+from ..contracts.manager import ContractManager
+from ..model.evm import EvmTransaction, EvmTxReceipt
+from ..model.block import DecodedLog, EncodedLog, EncodedMethod, DecodedMethod, Transaction
+from .log import LogDecoder
 
 
 def hex_to_bool(hex_string):

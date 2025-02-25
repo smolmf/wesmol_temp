@@ -2,7 +2,7 @@ from web3 import Web3
 from web3.contract import Contract
 from typing import Optional, Dict
 
-from indexer.indexer.contracts.registry import ContractRegistry
+from .registry import ContractRegistry
 
 class ContractManager:
     """

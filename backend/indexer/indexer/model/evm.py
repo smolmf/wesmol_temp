@@ -1,7 +1,7 @@
 from msgspec import Struct,field
 from typing import Optional
 
-from indexer.indexer.model.types import HexStr, HexInt, EvmAddress, EvmHash
+from .types import HexStr, HexInt, EvmAddress, EvmHash
 
 
 class EvmLog(Struct):

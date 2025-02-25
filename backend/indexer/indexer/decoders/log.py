@@ -1,9 +1,9 @@
 from typing import Optional
 from web3 import Web3
 
-from indexer.indexer.contracts.manager import ContractManager
-from indexer.indexer.model.evm import EvmLog
-from indexer.indexer.model.block import DecodedLog, EncodedLog
+from ..contracts.manager import ContractManager
+from ..model.evm import EvmLog
+from ..model.block import DecodedLog, EncodedLog
 
 
 class LogDecoder:

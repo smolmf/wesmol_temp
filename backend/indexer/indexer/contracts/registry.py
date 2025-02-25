@@ -3,7 +3,8 @@ from pathlib import Path
 import json
 import msgspec
 from msgspec import Struct
-from indexer.indexer.model.types import EvmAddress
+
+from ..model.types import EvmAddress
 
 
 class ABIConfig(Struct):

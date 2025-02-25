@@ -1,12 +1,12 @@
 from typing import Tuple, Optional, Dict, Any, List
 
-from indexer.indexer.processing.factory import ComponentFactory
-from indexer.indexer.storage.base import GCSBaseHandler
-from indexer.indexer.database.models.status import ProcessingStatus
-from indexer.indexer.database.operations.manager import DatabaseManager
-from indexer.indexer.processing.validator import BlockValidator
-from indexer.indexer.storage.handler import BlockHandler 
-from indexer.indexer.decoders.block import BlockDecoder
+from .factory import ComponentFactory
+from ..storage.base import GCSBaseHandler
+from ..database.models.status import ProcessingStatus
+from ..database.operations.manager import DatabaseManager
+from .validator import BlockValidator
+from ..storage.handler import BlockHandler 
+from ..decoders.block import BlockDecoder
 
 
 class BlockProcessor:

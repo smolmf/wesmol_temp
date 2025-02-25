@@ -2,7 +2,7 @@ from contextlib import contextmanager
 from sqlalchemy.orm import Session
 from sqlalchemy import create_engine
 
-from indexer.indexer.database.models.base import Base
+from ..models.base import Base
 
 class ConnectionManager:
     def __init__(self, database_url: str):

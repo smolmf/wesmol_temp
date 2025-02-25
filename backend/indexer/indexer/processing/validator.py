@@ -1,7 +1,7 @@
 from typing import Tuple, Optional
 import msgspec
 
-from indexer.indexer.model.evm import EvmFilteredBlock
+from ..model.evm import EvmFilteredBlock
 
 
 class BlockValidator:

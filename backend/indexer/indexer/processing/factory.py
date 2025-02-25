@@ -1,10 +1,10 @@
-from indexer.indexer.env import env
-from indexer.indexer.contracts.registry import ContractRegistry
-from indexer.indexer.contracts.manager import ContractManager
-from indexer.indexer.storage.base import GCSBaseHandler
-from indexer.indexer.processing.validator import BlockValidator
-from indexer.indexer.database.operations.manager import DatabaseManager
-from indexer.indexer.database.operations.session import ConnectionManager
+from ..env import env
+from ..contracts.registry import ContractRegistry
+from ..contracts.manager import ContractManager
+from ..storage.base import GCSBaseHandler
+from .validator import BlockValidator
+from ..database.operations.manager import DatabaseManager
+from ..database.operations.session import ConnectionManager
 
 class ComponentFactory:
     _components = {}

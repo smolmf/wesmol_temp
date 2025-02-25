@@ -1,5 +1,5 @@
-from indexer.indexer.model.events.event import BaseEvent
-from indexer.indexer.model.types import EvmAddress
+from .event import BaseEvent
+from ..types import EvmAddress
 
 class TransferEvent(BaseEvent):
     nft_address: EvmAddress

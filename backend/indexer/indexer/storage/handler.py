@@ -1,8 +1,8 @@
 from typing import Tuple, Optional, Dict, Any, List
 import json
 
-from indexer.indexer.env import env
-from indexer.indexer.storage.base import GCSBaseHandler
+from ..env import env
+from .base import GCSBaseHandler
 
 class BlockHandler():
     def __init__(self,gcs_handler: GCSBaseHandler,

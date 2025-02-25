@@ -1,6 +1,7 @@
 from typing import Literal, Optional
-from indexer.indexer.model.events.event import BaseEvent
-from indexer.indexer.model.types import EvmAddress
+
+from .event import BaseEvent
+from ..types import EvmAddress
 
 class RoyaltyEvent(BaseEvent):
     contract: Optional[EvmAddress]

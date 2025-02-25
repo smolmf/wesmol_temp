@@ -2,7 +2,7 @@ from typing import Optional
 from msgspec import Struct
 from datetime import datetime
 
-from indexer.indexer.model.types import HexStr,EvmAddress,EvmHash
+from .types import HexStr,EvmAddress,EvmHash
 
 
 class EncodedLog(Struct, tag=True):

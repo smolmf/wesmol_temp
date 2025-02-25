@@ -2,7 +2,7 @@ from datetime import datetime
 import enum
 from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, BigInteger, Enum
 
-from indexer.indexer.database.models.base import Base
+from .base import Base
 
 
 class ProcessingStatus(enum.Enum):

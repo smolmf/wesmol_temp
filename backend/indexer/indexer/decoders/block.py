@@ -2,12 +2,11 @@ from web3 import Web3
 import datetime
 from typing import Optional
 
-from indexer.indexer.contracts.registry import ContractRegistry
-from indexer.indexer.contracts.manager import ContractManager
-from indexer.indexer.decoders.transaction import TransactionDecoder
-from indexer.indexer.decoders.log import LogDecoder
-from indexer.indexer.model.block import RawLog, DecodedLog, Method, Input, Transaction, Block
-from indexer.indexer.model.evm import EvmFilteredBlock,EvmHash,EvmTransaction,EvmTxReceipt
+from ..contracts.registry import ContractRegistry
+from ..contracts.manager import ContractManager
+from .transaction import TransactionDecoder
+from ..model.block import Block
+from ..model.evm import EvmFilteredBlock,EvmHash,EvmTransaction,EvmTxReceipt
 
 
 def hex_timestamp_to_datetime(w3: Web3,hex_timestamp):

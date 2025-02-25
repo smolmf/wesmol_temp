@@ -2,8 +2,8 @@ from typing import List, Optional
 from datetime import datetime
 from sqlalchemy import desc
 
-from indexer.indexer.database.models.status import ProcessingStatus, BlockProcess
-from indexer.indexer.database.operations.session import ConnectionManager
+from ..models.status import ProcessingStatus, BlockProcess
+from .session import ConnectionManager
 
 
 class DatabaseManager:
