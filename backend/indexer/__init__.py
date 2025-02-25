@@ -1,4 +1,3 @@
-"""WESMOL Indexer - Blockchain data indexing system."""
 """WESMOL Indexer package."""
 
 from indexer.indexer import database
@@ -12,5 +11,8 @@ from indexer.indexer.env import env
 
 from indexer.indexer.processing.factory import ComponentFactory
 from indexer.indexer.processing.processor import BlockProcessor
+from indexer.indexer.database.models.status import ProcessingStatus
+from indexer.indexer.contracts.registry import ContractRegistry
+from indexer.indexer.contracts.manager import ContractManager
 
 __version__ = "0.1.0"

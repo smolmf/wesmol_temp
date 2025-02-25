@@ -5,7 +5,7 @@ import msgspec
 from msgspec import Struct
 
 from ..model.types import EvmAddress
-
+from ..utils.logging import setup_logger
 
 class ABIConfig(Struct):
     address: EvmAddress
@@ -38,16 +38,28 @@ class ContractRegistry:
 
     def __init__(self, contracts_file: str, abi_directory: str):
         self.contracts: dict[str, ContractConfig] = {}  # Contracts keyed by address
+        self.logger = setup_logger(__name__)
         self._load_contracts(contracts_file, abi_directory)
         self.abi_decoder = msgspec.json.Decoder(type=ABIConfig)
 
 
     def _load_contracts(self, contracts_file: str, abi_directory: str):
         """Load contract registry and ABIs."""
+        self.logger.info(f"Loading contracts from {contracts_file}")
 
-        with open(contracts_file) as f:
-            registry = json.load(f)
+        try:
+            with open(contracts_file) as f:
+                registry = json.load(f)
+        except FileNotFoundError:
+            self.logger.error(f"Contract registry file not found: {contracts_file}")
+            raise
+        except json.JSONDecodeError as e:
+            self.logger.error(f"Invalid JSON in contract registry: {e}")
+            raise
             
+        contract_count = 0
+        error_count = 0
+
         for subdir, contracts in registry.items():
             for address, metadata in contracts.items():
                 address = address.lower()
@@ -55,16 +67,32 @@ class ContractRegistry:
 
                 try:
                     contract_metadata = msgspec.convert(metadata, type=ContractMetadata)
+                    self.logger.debug(f"Loading ABI for {address} ({contract_metadata.name})")
+
                     with open(abi_path) as f:
-                        contract_abi = self.abi_decoder.decode(f.read())
-                        self.contracts[address] = ContractConfig(
-                            metadata= contract_metadata,
-                            abi= contract_abi.abi
-                        )
+                        try:
+                            contract_abi = self.abi_decoder.decode(f.read())
+                            self.contracts[address] = ContractConfig(
+                                metadata=contract_metadata,
+                                abi=contract_abi.abi
+                            )
+                            contract_count += 1
+                        except msgspec.ValidationError as e:
+                            self.logger.warning(f"Invalid ABI format for {address}: {e}")
+                            error_count += 1
+                        except Exception as e:
+                            self.logger.warning(f"Error loading ABI for {address}: {e}")
+                            error_count += 1
+                            
                 except FileNotFoundError:
-                    print(f"Warning: No ABI file found at {abi_path}")
+                    self.logger.warning(f"No ABI file found at {abi_path}")
+                    error_count += 1
                 except msgspec.ValidationError as e:
-                    print(f"Warning: Invalid Contract or ABI Config formatting: {e}")
+                    self.logger.warning(f"Invalid Contract metadata for {address}: {e}")
+                    error_count += 1
+        
+        self.logger.info(f"Loaded {contract_count} contracts successfully. Errors: {error_count}")
+    
     '''
     TODO: ADD CROSS VALIDATION TO INIT
 

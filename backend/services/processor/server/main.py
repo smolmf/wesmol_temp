@@ -11,6 +11,9 @@ from indexer.indexer.env import env
 from indexer.indexer.processing.processor import BlockProcessor
 from indexer.indexer.processing.factory import ComponentFactory
 from indexer.indexer.database.models.status import ProcessingStatus, BlockProcess
+from indexer.indexer.utils.logging import setup_logger
+
+logger = setup_logger("processor_service")
 
 app = Flask(__name__)
 
@@ -26,8 +29,11 @@ def health_check():
 def handle_pubsub():
     """Handle Pub/Sub push notifications for new blocks."""
     # Get the message
+    logger.info("Received Pub/Sub notification")
+
     envelope = request.get_json()
     if not envelope:
+        logger.warning("No Pub/Sub message received")
         return "No Pub/Sub message received", 400
 
     if not isinstance(envelope, dict) or "message" not in envelope:
@@ -50,7 +56,13 @@ def handle_pubsub():
     
     try:
         # Process the block
+        logger.info(f"Processing block from path: {gcs_path}")
         success, result_info = block_processor.process_block(gcs_path)
+
+        if success:
+            logger.info(f"Successfully processed {gcs_path}")
+        else:
+            logger.warning(f"Failed to process {gcs_path}: {result_info['errors']}")
         
         # Return detailed result info
         response = {
@@ -64,7 +76,8 @@ def handle_pubsub():
     
     except Exception as e:
         # Log the error but return 200 to acknowledge receipt
-        print(f"Error processing {gcs_path}: {str(e)}")
+        logger.error(f"Error processing {gcs_path}: {str(e)}", exc_info=True)
+
         return jsonify({
             "status": "error",
             "message": str(e)

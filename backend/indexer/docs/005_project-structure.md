@@ -85,7 +85,7 @@ wesmol/
 │   │   ├── processor/                # Block processor service
 │   │   │   ├── server/
 │   │   │   │   └── main.py           # Service entry point
-│   │   │   ├── Dockerfile            # TODO
+│   │   │   ├── Dockerfile            
 │   │   │   └── requirements.txt      # TODO
 │   │   │
 │   │   └── indexer/                  # TODO: Event indexer service

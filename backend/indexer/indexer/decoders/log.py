@@ -10,7 +10,7 @@ class LogDecoder:
     def __init__(self, contract_manager: ContractManager):
         self.contract_manager = contract_manager
         self.w3 = Web3()
-    
+
     def build_encoded_log(self, log: EvmLog) -> EncodedLog:
         try:
             encoded_log =  EncodedLog(
