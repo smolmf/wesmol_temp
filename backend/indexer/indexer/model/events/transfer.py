@@ -1,4 +1,4 @@
-from indexer.src.model.events.base import BaseEvent
+from indexer.indexer.model.events.event import BaseEvent
 from indexer.indexer.model.types import EvmAddress
 
 class TransferEvent(BaseEvent):

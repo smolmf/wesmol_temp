@@ -8,16 +8,17 @@ import functions_framework
 
 # Load environment variables
 load_dotenv()
+from indexer.indexer.env import env
 
 # Import after loading environment variables
-from indexer.indexer.env import env
-from indexer.indexer.database.operations.session import DatabaseManager
-from indexer.indexer.database.operations.validator import BlockValidator as DBValidator
-from indexer.indexer.database.models.status import ProcessingStatus
-from indexer.indexer.database.models.validation import BlockValidation
-from backend.indexer.indexer.storage.base import GCSHandler
-from backend.indexer.indexer.processing.processor import BlockProcessor, BlockValidator, BlockDecoder, BlockStorage
-
+from indexer.indexer.database.operations.session import ConnectionManager
+from indexer.indexer.database.operations.manager import DatabaseManager
+from indexer.indexer.database.models.status import ProcessingStatus, BlockProcess
+from indexer.indexer.processing.validator import BlockValidator
+from indexer.indexer.processing.processor import BlockProcessor
+from indexer.indexer.decoders.block import BlockDecoder
+from indexer.indexer.storage.base import GCSBaseHandler
+from indexer.indexer.storage.handler import BlockHandler
 # Initialize Flask app
 app = Flask(__name__)
 

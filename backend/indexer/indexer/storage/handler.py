@@ -4,7 +4,9 @@ import json
 from indexer.indexer.storage.base import GCSBaseHandler
 
 class BlockHandler():
-    def __init__(self,gcs_handler: GCSBaseHandler,raw_prefix: str,decoded_prefix: str):
+    def __init__(self,gcs_handler: GCSBaseHandler,
+                 raw_prefix: str = "quicknode/",
+                 decoded_prefix: str = "decoded/"):
         self.gcs_handler = gcs_handler
         self.raw_prefix = raw_prefix
         self.decoded_prefix = decoded_prefix

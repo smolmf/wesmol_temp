@@ -30,6 +30,13 @@ class IndexerEnvironment:
             'GCS_PROJECT_ID',
             'AVAX_RPC'
         ]
+
+        db_vars = ['DB_USER', 'DB_PASS', 'DB_NAME', 'DB_HOST']
+        db_present = [var for var in db_vars if os.getenv(var)]
+
+        if 0 < len(db_present) < len(db_vars):
+            missing_db = [var for var in db_vars if not os.getenv(var)]
+            raise ValueError(f"Incomplete database configuration. Missing: {', '.join(missing_db)}")
         
         missing = [var for var in required_vars if not os.getenv(var)]
         if missing:

@@ -27,7 +27,6 @@ class BlockDecoder:
     def merge_tx_with_receipts(self, raw_block: EvmFilteredBlock) -> tuple[dict[EvmHash,tuple[EvmTransaction,EvmTxReceipt]],Optional[dict]]:
         tx_dict = {tx.hash: tx for tx in raw_block.transactions}
         receipts_dict = {receipt.transactionHash: receipt for receipt in raw_block.receipts}
-        merged_dict = {k: (tx_dict[k], receipts_dict[k]) for k in tx_list & receipts_list}
 
         if not tx_dict:
             raise ValueError(f"No valid transactions found in block {self.w3.to_int(hexstr=raw_block.block)}")
@@ -44,8 +43,8 @@ class BlockDecoder:
             return merged_dict, None
 
         diffs = {
-            "tx_only": tx_list - receipts_list,
-            "receipt_only": receipts_list - tx_list
+            "tx_only": (tx_list - receipts_list),
+            "receipt_only": (receipts_list - tx_list)
         }        
 
         return merged_dict,diffs
