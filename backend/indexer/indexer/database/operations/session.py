@@ -1,0 +1,22 @@
+from contextlib import contextmanager
+from sqlalchemy.orm import Session
+from sqlalchemy import create_engine
+
+from indexer.indexer.database.models.base import Base
+
+class ConnectionManager:
+    def __init__(self, database_url: str):
+        self.engine = create_engine(database_url)
+        Base.metadata.create_all(self.engine)
+        
+    @contextmanager
+    def get_session(self):
+        session = Session(self.engine)
+        try:
+            yield session
+            session.commit()
+        except:
+            session.rollback()
+            raise
+        finally:
+            session.close()

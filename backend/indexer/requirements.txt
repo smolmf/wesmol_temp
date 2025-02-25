@@ -1,0 +1,10 @@
+# Core dependencies
+google-cloud-storage==2.14.0
+python-dotenv==1.0.0
+tqdm==4.66.1
+
+# Data processing
+pandas==2.1.4
+numpy==1.26.2
+
+# Add any other dependencies your project needs
