@@ -1,0 +1,107 @@
+{
+    "smoljoes": {
+        "0xc70df87e1d98f6a531c8e324c9bcec6fc82b5e8d": {
+            "name": "FlatLaunchpeg",
+            "version": "v1",
+            "protocol": "Smol Joes",
+            "type": "NFT",
+            "implementation_address": "0xb7e39b647b1ddca45d58b9fb1f265c7c25627e6f"
+        },
+        "0xb449701a5ebb1d660cb1d206a94f151f5a544a81": {
+            "name": "SmolJoes",
+            "version": "v2",
+            "protocol": "Smol Joes",
+            "type": "NFT"
+        },
+        "0x5beb759f7769193a8e401bb2d7cad22bacb930d5": {
+            "name": "OriginalSmolJoes",
+            "version": "v3",
+            "protocol": "Smol Joes",
+            "type": "NFT"
+        },
+        "0x0d4363229503d121b4b68c9b6a86814d705471ad": {
+            "name": "OGMigrationWorkshop",
+            "protocol": "Smol Joes",
+            "type": "Upgrader",
+            "description": "SJv2 to SJv3"
+        },
+        "0x35dde90bda56c8acab30a12e505b054a47c9d4ba": {
+            "name": "SmolJoeWorkshop",
+            "protocol": "Smol Joes",
+            "type": "Upgrader",
+            "description": "SJv1 to SJv2"
+        }
+    },
+    "joepegs": {
+        "0xae079eda901f7727d0715aff8f82ba8295719977": {
+            "name": "JoepegExchange",
+            "protocol": "Joepegs",
+            "type": "NFT Marketplace",
+            "implementation": "0xbb01d7ad46a1229f8383f4e863abf4461b427745"
+        },
+        "0x341c84811477b16ab7eae4f07980547e4df42559": {
+            "name": "JoepegAuctionHouse",
+            "protocol": "Joepegs",
+            "type": "NFT Auction",
+            "implementation": "0x539e333c9a9a6810110003e55b47375a7e436d09"
+        }
+    },
+    "hyperspace": {
+        "0x398baa6ffc99126671ab6be565856105a6118a40": {
+            "name": "ERC721OrdersFeature",
+            "protocol": "Hyperspace",
+            "type": "NFT Marketplace"
+        }
+    },
+    "opensea": {
+        "0x00000000000000adc04c56bf30ac9d3c0aaf14dc": {
+            "name": "Seaport",
+            "version": "v5",
+            "protocol": "OpenSea",
+            "type": "NFT Marketplace"
+        },
+        "0x0000000000000068f116a894984e2db1123eb395": {
+            "name": "Seaport",
+            "version": "v6",
+            "protocol": "OpenSea",
+            "type": "NFT Marketplace"
+        }
+    },
+    "rafflr": {
+        "0xea82821f75d3cb02c2b450eb43ae528603ea614a": {
+            "name": "Rafflr",
+            "protocol": "Rafflr",
+            "type": "NFT Raffle"
+        }        
+    },
+    "salvor": {
+        "0x64813357113500b9829fd47956e6fa58ebb56f66": {
+            "name": "ArtMarketplace",
+            "version": "v1",
+            "protocol": "Salvor",
+            "type": "NFT Marketplace",
+            "implementation": "0x3b56c9985ce06934109d4f60c47377f31c389eeb"
+        },
+        "0xacb8ce02e7f158c9e08cd4b58a197308bf37d69a": {
+            "name": "SalvorExchange",
+            "version": "v2",
+            "protocol": "Salvor",
+            "type": "NFT Marketplace",
+            "implementation": "0x27052aa8b340959924a2943bd711e564a4e63789"
+        },
+        "0x4085fbfc88192e5558aa8d1492106e757d11d6ae": {
+            "name": "SalvorLending",
+            "version": "v1",
+            "protocol": "Salvor",
+            "type": "NFT Lending",
+            "implementation": "0x8b6364e92c3f4f73b83f96423957df5e5010bcf8"
+        },
+        "0x05c1813ec7beb8bf744ac43fea25cafb650ac966": {
+            "name": "SalvorLendingV2",
+            "version": "v2",
+            "protocol": "Salvor",
+            "type": "NFT Lending",
+            "implementation": "0x16590c91de2021ab81a41ff4217a2e9f6df6db80"
+        }
+    }
+}
