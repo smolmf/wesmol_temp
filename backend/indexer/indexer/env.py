@@ -31,10 +31,16 @@ class IndexerEnvironment:
         
         self._validate_env()
 
-        # Initialize database connection if validation passes
-        self.db_engine = None
-        if self._validate_db_config():
-            self._init_db_connection()
+        # Check for SQLite override before attempting database connection
+        if os.getenv("DB_USE_SQLITE", "").lower() in ("true", "1", "yes"):
+            self.logger.info("SQLite database explicitly configured, skipping PostgreSQL connection attempt")
+            self.db_engine = self._init_sqlite_connection()
+        else:
+            # Initialize database connection if validation passes
+            self.db_engine = None
+            if self._validate_db_config():
+                self._init_db_connection()
+
     
     def _validate_env(self):
         required_vars = [
@@ -127,6 +133,24 @@ class IndexerEnvironment:
             self.db_engine = None
             return False
 
+    def _init_sqlite_connection(self):
+        """Initialize SQLite database connection."""
+        from sqlalchemy import create_engine
+        data_dir = self.paths['data_dir']
+        db_url = f"sqlite:///{data_dir}/wesmol.db"
+        self.logger.info(f"Initializing SQLite database at {db_url}")
+        
+        try:
+            engine = create_engine(db_url)
+            # Create tables
+            from indexer.indexer.database.models.base import Base
+            Base.metadata.create_all(engine)
+            self.logger.info("SQLite database initialized successfully")
+            return engine
+        except Exception as e:
+            self.logger.error(f"Failed to initialize SQLite database: {str(e)}")
+            return None
+    
     def get_path(self, name):
         return self.paths.get(name)
 

@@ -5,6 +5,7 @@ from ..storage.base import GCSBaseHandler
 from .validator import BlockValidator
 from ..database.operations.manager import DatabaseManager
 from ..database.operations.session import ConnectionManager
+from ..storage.local import LocalBlockHandler
 
 class ComponentFactory:
     _components = {}
@@ -23,7 +24,6 @@ class ComponentFactory:
         if 'local_handler' not in cls._components:
             gcs_handler = cls.get_gcs_handler()
             local_dir = local_dir or env.get_path('data_dir')
-            from indexer.indexer.storage.local import LocalBlockHandler
             cls._components['local_handler'] = LocalBlockHandler(
                 gcs_handler=gcs_handler,
                 local_dir=local_dir

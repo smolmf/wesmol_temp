@@ -1,3 +1,4 @@
+import os
 import sys
 import argparse
 from pathlib import Path
@@ -16,7 +17,19 @@ from indexer.indexer.utils.logging import setup_logger
 def main():
     """Main entry point."""
     parser = argparse.ArgumentParser(description="Generic batch processor for WESMOL Indexer")
+
+    # Parse local-db flag early
+    parser.add_argument("--local-db", action="store_true",
+                       help="Use local SQLite database instead of PostgreSQL")
+    args, remaining_argv = parser.parse_known_args()
     
+    # Set SQLite environment variable immediately if flag is present
+    if args.local_db:
+        os.environ["DB_USE_SQLITE"] = "True"
+        print("Using local SQLite database")
+    
+    parser = argparse.ArgumentParser(description="Generic batch processor for WESMOL Indexer")
+
     # Storage options
     parser.add_argument("--storage", choices=["gcs", "local"], default="local",
                        help="Where to store decoded blocks (default: local)")
