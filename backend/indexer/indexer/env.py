@@ -49,6 +49,15 @@ class IndexerEnvironment:
     def get_path(self, name):
         return self.paths.get(name)
 
+    def is_development(self):
+        return os.getenv("ENVIRONMENT", "").lower() == "development"
+
+    def get_log_level(self):
+        """Get configured log level."""
+        level = os.getenv("LOG_LEVEL", "INFO").upper()
+        valid_levels = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
+        return level if level in valid_levels else "INFO"
+
     def get_db_url(self):
         db_user = os.getenv("DB_USER")
         db_pass = os.getenv("DB_PASS")

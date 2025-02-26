@@ -42,3 +42,19 @@ python backend/scripts/fix_block.py patch 12345 my_fix.json
 ```bash
 python backend/scripts/fix_block.py reset 12345
 ```
+
+# BATCH PROCESSOR
+
+```bash
+# Sample 25 blocks and store locally
+python scripts/batch_processor.py --sample 25 --storage local
+
+# Process specific blocks and store in GCS
+python scripts/batch_processor.py --block-numbers 12345 12346 12347 --storage gcs
+
+# Process invalid blocks and store locally
+python scripts/batch_processor.py --status invalid --limit 50 --storage local
+
+# Process blocks from a file
+python scripts/batch_processor.py --file block_list.txt --storage local
+```

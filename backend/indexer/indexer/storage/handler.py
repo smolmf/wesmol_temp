@@ -17,6 +17,10 @@ class BlockHandler():
         block_num = gcs_path.split('-')[-1].split('.')[0]
         return int(block_num.lstrip('0'))
 
+    def build_path_from_block(self, block_number: int) -> str:
+        padded_number = str(block_number).zfill(12)
+        return f"quicknode_avalanche-mainnet_block_with_receipts_{padded_number}-{padded_number}.json"
+
     def store_decoded_block(self, block_number: int, decoded_data: Dict[str, Any]) -> bool:
         """
         Store decoded block data in GCS.
@@ -24,7 +28,7 @@ class BlockHandler():
         Returns:
             True if storage was successful
         """
-        destination = f"{self.decoded_prefix}block_{block_number}.json"
+        destination = f"{self.decoded_prefix}{block_number}.json"
         return self.gcs_handler.upload_blob_from_string(
             json.dumps(decoded_data), 
             destination,
@@ -38,7 +42,7 @@ class BlockHandler():
         Returns:
             Raw block data if found, None otherwise
         """
-        path = f"{self.raw_prefix}block_{block_number}.json"
+        path = f"{self.raw_prefix}{self.build_path_from_block(block_number)}"
         return self.gcs_handler.download_blob_as_bytes(path)
     
     def get_decoded_block(self, block_number: int) -> Optional[Dict[str, Any]]:
@@ -48,7 +52,7 @@ class BlockHandler():
         Returns:
             Decoded block data if found, None otherwise
         """
-        path = f"{self.decoded_prefix}block_{block_number}.json"
+        path = f"{self.decoded_prefix}{block_number}.json"
         data = self.gcs_handler.download_blob_as_text(path)
         if data:
             return json.loads(data)

@@ -1,4 +1,5 @@
 from typing import Tuple, Optional, Dict, Any, List
+import json
 
 from .factory import ComponentFactory
 from ..storage.base import GCSBaseHandler
@@ -34,6 +35,12 @@ class BlockProcessor:
 
         self.logger = setup_logger(__name__)        
     
+    def _json_serializer(self, obj):
+        """Custom JSON serializer for objects not serializable by default json code"""
+        if hasattr(obj, 'isoformat'):
+            return obj.isoformat()
+        raise TypeError(f"Type {type(obj)} not serializable")
+
     def process_block(self, gcs_path: str) -> Tuple[bool, Dict[str, Any]]:
         """
         Process a block from GCS through validation, decoding, and storage.
@@ -106,7 +113,17 @@ class BlockProcessor:
             
             try:
                 self.logger.debug(f"Storing decoded block {block_number}")
-                self.handler.store_decoded_block(block_number, decoded_data)
+                
+                if hasattr(self.handler,'store_decoded_block'):
+                    self.handler.store_decoded_block(block_number, decoded_data)
+                else:
+                    store_path = f"{self.handler.decoded_prefix}{block_number}"
+                    self.gcs_handler.upload_blob_from_string(
+                        json.dumps(decoded_data, default=self._json_serializer), 
+                        store_path,
+                        content_type="application/json"
+                    )
+
                 self.logger.info(f"Block {block_number} stored successfully")
                 result_info["storage"] = True
             except Exception as e:

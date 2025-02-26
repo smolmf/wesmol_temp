@@ -14,5 +14,6 @@ from indexer.indexer.processing.processor import BlockProcessor
 from indexer.indexer.database.models.status import ProcessingStatus
 from indexer.indexer.contracts.registry import ContractRegistry
 from indexer.indexer.contracts.manager import ContractManager
+from indexer.indexer.storage.local import LocalStorageHandler
 
 __version__ = "0.1.0"
