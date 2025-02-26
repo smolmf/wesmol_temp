@@ -2,6 +2,7 @@ from typing import List, Optional
 from datetime import datetime
 from sqlalchemy import desc
 
+from ...env import env
 from ..models.status import ProcessingStatus, BlockProcess
 from ..models.gcs import GcsObject
 from .session import ConnectionManager
@@ -60,13 +61,14 @@ class DatabaseManager:
         with self.db.get_session() as session:
             return session.query(BlockProcess).get(block_number)
         
-    def sync_gcs_objects(self, prefix=None, limit=None):
+    def sync_gcs_objects(self, prefix=None, limit=None, batch_size=1000):
         """
-        Sync GCS objects to database.
+        Sync GCS objects to database in memory-efficient batches.
         
         Args:
             prefix: Optional prefix to filter GCS objects
             limit: Optional limit to number of objects to sync
+            batch_size: Number of objects to process per batch
             
         Returns:
             Count of objects synced
@@ -74,56 +76,79 @@ class DatabaseManager:
         
         gcs_handler = ComponentFactory.get_gcs_handler()
         
-        # List objects from GCS
-        blobs = gcs_handler.list_blobs(prefix=prefix)
-        if limit:
-            blobs = list(itertools.islice(blobs, limit))
-        
+        # Process in batches to avoid memory issues
         count = 0
-        with self.db.get_session() as session:
-            for blob in blobs:
-                # Try to extract block number from path
-                block_number = None
-                try:
-                    # Assuming format like "raw/block_12345.json"
-                    filename = blob.name.split('/')[-1]
-                    if filename.startswith('block_') and filename.endswith('.json'):
-                        block_number = int(filename[6:-5])  # Extract "12345" from "block_12345.json"
-                except:
-                    pass
+        batch_count = 0
+        
+        # Use an iterator to avoid loading all blobs into memory
+        blob_iterator = gcs_handler.list_blobs(prefix=prefix)
+        
+        # Process in batches
+        current_batch = []
+        
+        for blob in blob_iterator:
+            # Stop if we've hit the limit
+            if limit and count >= limit:
+                break
                 
-                # Determine file type
-                file_type = 'unknown'
-                if 'raw/' in blob.name:
-                    file_type = 'raw'
-                elif 'decoded/' in blob.name:
-                    file_type = 'decoded'
-                
-                # Create or update record
-                obj = session.query(GcsObject).filter(GcsObject.path == blob.name).first()
-                if obj:
-                    obj.block_number = block_number
-                    obj.file_type = file_type
-                    obj.size = blob.size
-                    obj.updated_at = datetime.now()
-                else:
-                    obj = GcsObject(
-                        path=blob.name,
-                        block_number=block_number,
-                        file_type=file_type,
-                        size=blob.size
-                    )
-                    session.add(obj)
-                
-                count += 1
-                
-                # Commit in batches to avoid memory issues
-                if count % 100 == 0:
-                    session.commit()
+            current_batch.append(blob)
+            count += 1
             
-            session.commit()
+            # Process batch if we've reached batch size
+            if len(current_batch) >= batch_size:
+                self._process_gcs_batch(current_batch)
+                batch_count += 1
+                self.logger.info(f"Processed batch {batch_count} ({len(current_batch)} objects)")
+                current_batch = []  # Reset batch
+        
+        # Process any remaining objects
+        if current_batch:
+            self._process_gcs_batch(current_batch)
+            batch_count += 1
+            self.logger.info(f"Processed final batch {batch_count} ({len(current_batch)} objects)")
         
         return count
+
+    def _process_gcs_batch(self, blobs):
+        """Process a batch of GCS blobs to update the database."""
+        
+        with self.db.get_session() as session:
+            for blob in blobs:
+                try:
+                    # Try to extract block number
+                    block_number = None
+                    try:
+                        block_number = env.extract_block_number(blob.name)
+                    except ValueError:
+                        pass
+                    
+                    # Determine file type
+                    file_type = 'unknown'
+                    if blob.name.startswith(env.get_rpc_prefix()):
+                        file_type = 'raw'
+                    elif blob.name.startswith(env.get_decoded_prefix()):
+                        file_type = 'decoded'
+                    
+                    # Create or update record
+                    obj = session.query(GcsObject).filter(GcsObject.path == blob.name).one_or_none()
+                    if obj:
+                        obj.block_number = block_number
+                        obj.file_type = file_type
+                        obj.size = blob.size
+                        obj.updated_at = datetime.now()
+                    else:
+                        obj = GcsObject(
+                            path=blob.name,
+                            block_number=block_number,
+                            file_type=file_type,
+                            size=blob.size
+                        )
+                        session.add(obj)
+                except Exception as e:
+                    self.logger.warning(f"Error processing blob {blob.name}: {e}")
+                    
+            # Commit the batch
+            session.commit()
 
     def get_available_block_paths(self, file_type='raw', min_block=None, max_block=None, limit=None):
         """

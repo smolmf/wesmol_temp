@@ -22,12 +22,9 @@ def main():
                        help="Where to store decoded blocks (default: local)")
     parser.add_argument("--local-dir", type=str, default=None,
                        help="Local directory for storage (default: data_dir from env)")
-    parser.add_argument("--sync", action="store_true",
-                    help="Sync GCS objects to database before querying (default)")
-    parser.add_argument("--no-sync", action="store_false", dest="sync",
-                    help="Don't sync GCS objects to database before querying")
-    parser.set_defaults(sync=True)
-
+    parser.add_argument("--local-db", action="store_true",
+                       help="Use local SQLite database instead of PostgreSQL")
+    
     # Block selection methods (mutually exclusive)
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("--sample", type=int, metavar="N",
@@ -50,23 +47,31 @@ def main():
                       help="Maximum number of blocks to process for --status (default: 100)")
     parser.add_argument("--batch-size", type=int, default=None,
                       help="Process blocks in batches of this size")
+    parser.add_argument("--force", action="store_true",
+                      help="Force reprocessing even if decoded blocks already exist")
+    parser.add_argument("--sync", action="store_true", dest="sync",
+                      help="Sync GCS objects to database before querying (default)")
+    parser.add_argument("--no-sync", action="store_false", dest="sync",
+                      help="Don't sync GCS objects to database before querying")
     parser.add_argument("--output", type=str, default=None,
                       help="Output file for results (default: auto-generated)")
+    parser.set_defaults(sync=True)
     
     args = parser.parse_args()
     
     # Set up logging
     logger = setup_logger()
     
-    # Verify database
+    # Verify database connection
     if not env.verify_database():
         logger.error("Database verification failed. Cannot proceed.")
         sys.exit(1)
-
+    
     # Initialize batch processor
     batch_processor = BatchProcessor(
         storage_type=args.storage,
-        local_dir=args.local_dir
+        local_dir=args.local_dir,
+        use_local_db=args.local_db
     )
     
     # Map status string to enum
@@ -109,9 +114,14 @@ def main():
     
     logger.info(f"Will process {len(block_paths)} blocks with {args.storage} storage")
     
-    # Process blocks with batch size control
-    results = batch_processor.process_blocks(block_paths, batch_size=args.batch_size)
-
+    # Process blocks
+    results = batch_processor.process_blocks(
+        block_paths,
+        batch_size=args.batch_size,
+        force=args.force,
+        sync_first=args.sync
+    )
+    
     # Save results
     batch_processor.save_results(results, args.output)
 

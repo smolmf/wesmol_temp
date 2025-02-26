@@ -23,25 +23,34 @@ class BatchProcessor:
     Process batches of blocks with flexible storage options.
     """
     
-    def __init__(self, storage_type="gcs", local_dir=None):
+    def __init__(self, storage_type="gcs", local_dir=None, use_local_db=False):
         """
         Initialize batch processor.
         
         Args:
             storage_type: Where to store decoded blocks ("gcs" or "local")
             local_dir: Local directory for storage if storage_type is "local"
+            use_local_db: Whether to use local SQLite database
         """
         self.logger = setup_logger(__name__)
         self.storage_type = storage_type
-        self.local_dir = local_dir or env.get_path("data_dir")
+        self.local_dir = local_dir
+        
+        # Force use of SQLite for local development if requested
+        if use_local_db:
+            os.environ["DB_USE_SQLITE"] = "True"
+            self.logger.info("Using local SQLite database")
         
         # Initialize components
         self.gcs_handler = ComponentFactory.get_gcs_handler()
         self.db_manager = ComponentFactory.get_database_manager()
         self.validator = ComponentFactory.get_block_validator()
         self.registry = ComponentFactory.get_contract_registry()
+        
+        # Create decoder
         self.decoder = BlockDecoder(self.registry)
         
+        # Create appropriate handler
         if storage_type == "local":
             self.handler = LocalBlockHandler(
                 gcs_handler=self.gcs_handler,
@@ -56,6 +65,7 @@ class BatchProcessor:
                 decoded_prefix=env.get_decoded_prefix()
             )
         
+        # Create block processor
         self.processor = BlockProcessor(
             gcs_handler=self.gcs_handler,
             status_tracker=self.db_manager,
@@ -144,26 +154,48 @@ class BatchProcessor:
         block_paths = []
         for block_number in block_numbers:
             if self.db_manager.block_exists_in_gcs(block_number, file_type):
-                block_paths.append(f"{prefix}block_{block_number}.json")
+                if file_type == 'raw':
+                    block_paths.append(env.format_raw_block_path(block_number))
+                else:
+                    block_paths.append(env.format_decoded_block_path(block_number))
             else:
                 self.logger.warning(f"Block {block_number} not found in database")
         
         return block_paths
     
-    def get_blocks_by_status(self, status: ProcessingStatus, limit: int = 100) -> List[str]:
+    def get_blocks_by_status(self, status: ProcessingStatus, limit: int = 100, sync_first=True) -> List[str]:
         """
         Get blocks by processing status.
         
         Args:
             status: Processing status to filter by
             limit: Maximum number of blocks to retrieve
+            sync_first: Whether to sync GCS objects to database first
             
         Returns:
             List of block paths
         """
+        if sync_first:
+            # Sync GCS objects to database
+            self.logger.info("Syncing GCS objects to database...")
+            count = self.db_manager.sync_gcs_objects(prefix=env.get_rpc_prefix())
+            self.logger.info(f"Synced {count} GCS objects to database")
+        
+        # Get blocks from database
         blocks = self.db_manager.get_blocks_by_status(status, limit=limit)
-        return [block.gcs_path for block in blocks]
-
+        
+        # Convert to paths
+        paths = []
+        for block in blocks:
+            # If gcs_path is stored, use it directly
+            if hasattr(block, 'gcs_path') and block.gcs_path:
+                paths.append(block.gcs_path)
+            # Otherwise generate path from block number
+            else:
+                paths.append(env.format_raw_block_path(block.block_number))
+        
+        return paths
+    
     def get_blocks_in_range(self, min_block: int, max_block: int, status: Optional[ProcessingStatus] = None, prefix=None, sync_first=True) -> List[str]:
         """
         Get blocks within a specified block number range, optionally filtered by status.
@@ -195,19 +227,16 @@ class BatchProcessor:
         # If status is provided, query database for blocks in range with that status
         if status:
             with self.db_manager.db.get_session() as session:
-                from indexer.indexer.database.models.status import BlockProcess
                 blocks = session.query(BlockProcess).filter(
                     BlockProcess.block_number >= min_block,
                     BlockProcess.block_number <= max_block
                 )
                 
-                if status:
-                    blocks = blocks.filter(BlockProcess.status == status)
-                    
+                blocks = blocks.filter(BlockProcess.status == status)
                 blocks = blocks.order_by(BlockProcess.block_number).all()
                 
                 # Return GCS paths
-                return [block.gcs_path for block in blocks]
+                return [block.gcs_path for block in blocks if block.gcs_path]
         
         # If no status filter, get blocks directly from GCS objects table
         else:
@@ -217,14 +246,16 @@ class BatchProcessor:
                 max_block=max_block
             )
     
-    def process_blocks(self, block_paths: List[str], batch_size: int = None, force: bool = False) -> Dict[str, Any]:
+    def process_blocks(self, block_paths: List[str], batch_size: int = None, force: bool = False, sync_first: bool = True) -> Dict[str, Any]:
         """
         Process a batch of blocks, optionally breaking into smaller batches.
         
         Args:
             block_paths: List of block paths to process
             batch_size: Maximum number of blocks to process in a single batch
-                    (None = process all at once)
+                       (None = process all at once)
+            force: Force reprocessing even if decoded blocks already exist
+            sync_first: Whether to sync GCS objects to database first
             
         Returns:
             Processing results
@@ -233,6 +264,7 @@ class BatchProcessor:
             "total": len(block_paths),
             "success": 0,
             "failure": 0,
+            "skipped": 0,
             "started_at": datetime.now().isoformat(),
             "batches": [],
             "details": []
@@ -241,6 +273,12 @@ class BatchProcessor:
         if not block_paths:
             self.logger.warning("No blocks to process")
             return results
+        
+        # Sync database if requested
+        if sync_first:
+            # Update database to know about decoded blocks
+            self.logger.info("Updating GCS object database...")
+            self.db_manager.sync_gcs_objects(prefix=env.get_decoded_prefix(), batch_size=1000)
         
         # Calculate batches
         if batch_size and batch_size < len(block_paths):
@@ -260,6 +298,7 @@ class BatchProcessor:
                 "batch_size": len(batch),
                 "success": 0,
                 "failure": 0,
+                "skipped": 0,
                 "started_at": batch_start_time.isoformat(),
                 "blocks": []
             }
@@ -273,13 +312,23 @@ class BatchProcessor:
             with tqdm(total=total_blocks, desc=f"Batch {batch_index + 1}/{len(batches)}") as progress:
                 for i, path in enumerate(batch):
                     try:
-                        # Process block
-                        block_number = self.processor.handler.extract_block_number(path)
+                        # Extract block number
+                        block_number = env.extract_block_number(path)
                         
-                        # Check if decoded block already exists
+                        # Check if decoded block already exists (if not forcing)
                         skip_processing = False
-                        if not force and hasattr(self.processor.handler, 'decoded_block_exists'):
-                            if self.processor.handler.decoded_block_exists(block_number):
+                        if not force:
+                            decoded_exists = False
+                            
+                            # Check database first
+                            if self.db_manager.block_exists_in_gcs(block_number, 'decoded'):
+                                decoded_exists = True
+                            # Fallback to direct check if database might not be up to date
+                            elif hasattr(self.handler, 'decoded_block_exists'):
+                                if self.handler.decoded_block_exists(block_number):
+                                    decoded_exists = True
+                            
+                            if decoded_exists:
                                 self.logger.debug(f"Block {block_number} already decoded, skipping")
                                 skip_processing = True
                                 results["skipped"] += 1
@@ -331,7 +380,8 @@ class BatchProcessor:
                             elapsed_time = current_time - batch_start_time.timestamp()
                             blocks_per_second = blocks_processed / elapsed_time if elapsed_time > 0 else 0
                             
-                            est_remaining_seconds = (total_blocks - blocks_processed) / blocks_per_second if blocks_per_second > 0 else float('inf')
+                            est_remaining_seconds = ((total_blocks - blocks_processed) / 
+                                                    blocks_per_second if blocks_per_second > 0 else float('inf'))
                             est_remaining = str(datetime.timedelta(seconds=int(est_remaining_seconds)))
                             
                             self.logger.info(
@@ -351,7 +401,7 @@ class BatchProcessor:
                         batch_results["failure"] += 1
                         
                         try:
-                            block_number = self.processor.handler.extract_block_number(path)
+                            block_number = env.extract_block_number(path)
                         except:
                             block_number = None
                         
@@ -399,6 +449,7 @@ class BatchProcessor:
             f"Processing complete: "
             f"{results['success']} successful, "
             f"{results['failure']} failed, "
+            f"{results['skipped']} skipped, "
             f"in {results['duration_seconds']:.2f} seconds"
         )
         
@@ -416,6 +467,7 @@ class BatchProcessor:
             Path to saved results file
         """
         if output_file is None:
+            # Auto-generate filename
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             if self.storage_type == "local":
                 output_dir = Path(self.local_dir or env.get_path('data_dir'))
@@ -424,8 +476,10 @@ class BatchProcessor:
             
             output_file = output_dir / f"batch_results_{timestamp}.json"
         
+        # Ensure directory exists
         os.makedirs(os.path.dirname(output_file), exist_ok=True)
         
+        # Save results
         with open(output_file, 'w') as f:
             json.dump(results, f, indent=2)
         

@@ -255,60 +255,45 @@ class IndexerEnvironment:
         return f"{self.get_decoded_prefix()}{format_str.format(block_number)}"
 
     def extract_block_number(self, path):
-        """
-        Extract block number from a block path.
-        
-        This handles different path formats based on their prefixes.
-        """
+        """Extract block number from a block path."""
         # Get prefixes for comparison
         raw_prefix = self.get_rpc_prefix()
         decoded_prefix = self.get_decoded_prefix()
         
         try:
+            # Strip prefix if present
             if path.startswith(raw_prefix):
-                # Handle raw block format
-                # Try standard format first
                 filename = path[len(raw_prefix):]
-                format_str = self.get_raw_block_path_format()
-                
-                # Convert format string to regex pattern
-                # Replace {} with capture group for digits
-                pattern = format_str.replace(".", "\\.").replace("{}", "([0-9]+)")
-                match = re.search(pattern, filename)
-                
-                if match:
-                    return int(match.group(1))
-                    
-                # Try quicknode format as fallback
-                if "quicknode" in path:
-                    # Example: quicknode_avalanche-mainnet_block_with_receipts_00012345-00012345.json
-                    parts = filename.split('_')
-                    if len(parts) >= 5:
-                        number_part = parts[-1].split('.')[0]  # Get "00012345-00012345"
-                        return int(number_part.split('-')[0])  # Get first number and convert
-                        
             elif path.startswith(decoded_prefix):
-                # Handle decoded block format
                 filename = path[len(decoded_prefix):]
-                format_str = self.get_decoded_block_path_format()
-                
-                # Convert format string to regex pattern
-                pattern = format_str.replace(".", "\\.").replace("{}", "([0-9]+)")
-                match = re.search(pattern, filename)
-                
-                if match:
-                    return int(match.group(1))
+            else:
+                filename = path.split('/')[-1]  # Just use the filename part
             
-            # Generic extraction for simple patterns
-            # Try to find block_NUMBER.json pattern
-            match = re.search(r"block_([0-9]+)\.json", path)
+            # Try common patterns in order of specificity
+            
+            # Pattern 1: Standard block_{number}.json
+            match = re.search(r"block_(\d+)\.json", filename)
+            if match:
+                return int(match.group(1))
+                
+            # Pattern 2: QuickNode format with padded numbers
+            match = re.search(r"quicknode.*_(\d+)-\d+\.json", filename)
+            if match:
+                return int(match.group(1))
+                
+            # Pattern 3: Just the number itself (for simpler formats)
+            match = re.search(r"(\d+)\.json$", filename)
+            if match:
+                return int(match.group(1))
+                
+            # Last resort: Try to find any sequence of digits in the filename
+            match = re.search(r"_(\d+)[^0-9]", filename)
             if match:
                 return int(match.group(1))
                 
         except Exception as e:
-            logger = logging.getLogger(__name__)
-            logger.error(f"Failed to extract block number from {path}: {e}")
+            self.logger.error(f"Failed to extract block number from {path}: {e}")
         
         raise ValueError(f"Could not extract block number from path: {path}")
-    
+
 env = IndexerEnvironment()
