@@ -8,53 +8,60 @@ from ..database.operations.session import ConnectionManager
 from ..storage.local import LocalBlockHandler
 
 class ComponentFactory:
-    _components = {}
-    
     @classmethod
     def get_gcs_handler(cls):
-        if 'gcs_handler' not in cls._components:
-            cls._components['gcs_handler'] = GCSBaseHandler(
-                bucket_name=env.get_bucket_name(),
-                credentials_path=env.get_gcs_credentials()
-            )
-        return cls._components['gcs_handler']
+        handler = env.get_component('gcs_handler')
+        if handler:
+            return handler
+        
+        handler = GCSBaseHandler(
+            bucket_name=env.get_bucket_name(),
+            credentials_path=env.get_gcs_credentials()
+        )
+        env.register_component('gcs_handler', handler)
+        return handler
     
     @classmethod
-    def get_local_handler(cls, local_dir=None):
-        if 'local_handler' not in cls._components:
-            gcs_handler = cls.get_gcs_handler()
-            local_dir = local_dir or env.get_path('data_dir')
-            cls._components['local_handler'] = LocalBlockHandler(
-                gcs_handler=gcs_handler,
-                local_dir=local_dir
-            )
-        return cls._components['local_handler']
-
-    @classmethod
     def get_contract_registry(cls):
-        if 'contract_registry' not in cls._components:
-            contracts_file = env.get_path('config_dir') / 'contracts.json'
-            abi_directory = env.get_path('config_dir') / 'abis'
-            cls._components['contract_registry'] = ContractRegistry(contracts_file, abi_directory)
-        return cls._components['contract_registry']
+        registry = env.get_component('contract_registry')
+        if registry:
+            return registry
+        
+        contracts_file = env.get_path('config_dir') / 'contracts.json'
+        abi_directory = env.get_path('config_dir') / 'abis'
+        registry = ContractRegistry(contracts_file, abi_directory)
+        env.register_component('contract_registry', registry)
+        return registry
     
     @classmethod
     def get_contract_manager(cls):
-        if 'contract_manager' not in cls._components:
-            registry = cls.get_contract_registry()
-            cls._components['contract_manager'] = ContractManager(registry)
-        return cls._components['contract_manager']
+        manager = env.get_component('contract_manager')
+        if manager:
+            return manager
+        
+        registry = cls.get_contract_registry()
+        manager = ContractManager(registry)
+        env.register_component('contract_manager', manager)
+        return manager
     
     @classmethod
     def get_database_manager(cls):
-        if 'db_manager' not in cls._components:
-            conn_manager = ConnectionManager(env.get_db_url())
-            cls._components['db_manager'] = DatabaseManager(conn_manager)
-        return cls._components['db_manager']
+        db_manager = env.get_component('db_manager')
+        if db_manager:
+            return db_manager
+        
+        conn_manager = ConnectionManager(env.get_db_url())
+        db_manager = DatabaseManager(conn_manager)
+        env.register_component('db_manager', db_manager)
+        return db_manager
     
     @classmethod
     def get_block_validator(cls):
-        if 'block_validator' not in cls._components:
-            cls._components['block_validator'] = BlockValidator()
-        return cls._components['block_validator']
+        validator = env.get_component('block_validator')
+        if validator:
+            return validator
+        
+        validator = BlockValidator()
+        env.register_component('block_validator', validator)
+        return validator
     

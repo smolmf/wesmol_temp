@@ -11,6 +11,7 @@ class IndexerEnvironment:
         self.current_dir = Path(__file__).resolve()
         self.indexer_root = self.current_dir.parents[1]  # wesmol/backend/indexer
         self.project_root = self.indexer_root.parents[1]  # project root (wesmol)
+        self._components = {}
 
         # Initialize logger
         self.logger = logging.getLogger("indexer.env")
@@ -320,4 +321,12 @@ class IndexerEnvironment:
         
         raise ValueError(f"Could not extract block number from path: {path}")
 
+    def register_component(self, name, component):
+        """Register a component for shared use."""
+        self._components[name] = component
+        
+    def get_component(self, name):
+        """Get a registered component."""
+        return self._components.get(name)
+    
 env = IndexerEnvironment()

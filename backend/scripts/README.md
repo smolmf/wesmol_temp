@@ -46,8 +46,8 @@ python backend/scripts/fix_block.py reset 12345
 # BATCH PROCESSOR
 
 ```bash
-# Sample 25 blocks and store locally
-python scripts/batch_processor.py --sample 25 --storage local
+# Sample 5 blocks and store locally
+python backend/scripts/batch_processor.py --sample 5 --storage local --local-db 
 
 # Process specific blocks and store in GCS
 python scripts/batch_processor.py --block-numbers 12345 12346 12347 --storage gcs
