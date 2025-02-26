@@ -159,7 +159,7 @@ class IndexerEnvironment:
             data_dir = self.paths['data_dir']
             return f"sqlite:///{data_dir}/wesmol.db"
         
-        return f"postgresql://{db_user}:{db_pass}@{db_host}:{db_port}/{db_name}"
+        return f"postgresql+psycopg://{db_user}:{db_pass}@{db_host}:{db_port}/{db_name}"
 
     def verify_database(self):
         """

@@ -13,6 +13,7 @@ setup(
         "flask>=2.0.0",
         "tqdm>=4.65.0",
         "requests>=2.28.0",
-        "functions-framework>=3.0.0"
+        "functions-framework>=3.0.0",
+        "psycopg[binary]>=3.0.0"
     ]
 )
