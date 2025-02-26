@@ -1,19 +1,33 @@
 from contextlib import contextmanager
 from sqlalchemy.orm import Session
-from sqlalchemy import create_engine
 
+from ...env import env
 from ..models.base import Base
 
 class ConnectionManager:
-    def __init__(self, database_url: str):
-        self.engine = create_engine(database_url)
-        self._initialize_tables()
+    def __init__(self, database_url=None):
+        """
+        Initialize database connection manager.
+        
+        Args:
+            database_url: Optional database URL (defaults to env.get_db_url())
+        """
+        if database_url:
+            # Create a new engine if URL is provided
+            from sqlalchemy import create_engine
+            self.engine = create_engine(database_url)
+            self._initialize_tables()
+        else:
+            # Use the engine from environment
+            self.engine = env.get_db_engine()
     
     def _initialize_tables(self):
+        """Initialize database tables."""
         Base.metadata.create_all(self.engine)
-
+    
     @contextmanager
     def get_session(self):
+        """Get a database session."""
         session = Session(self.engine)
         try:
             yield session

@@ -64,30 +64,47 @@ class BatchProcessor:
             handler=self.handler
         )
     
-    def list_available_blocks(self, prefix=None, max_blocks=1000) -> List[str]:
+    def list_available_blocks(self, prefix=None, max_blocks=1000, sync_first=True) -> List[str]:
         """
-        List available blocks from GCS.
+        List available blocks from database (syncing from GCS first if requested).
         
+        Args:
+            prefix: GCS prefix to filter by
+            max_blocks: Maximum number of blocks to list
+            sync_first: Whether to sync GCS objects to database first
+                
         Returns:
             List of block paths
         """
-        prefix = prefix or env.get_rpc_prefix()
-        self.logger.info(f"Listing blocks in GCS bucket {self.gcs_handler.bucket_name} with prefix {prefix}...")
+        file_type = 'raw'
+        if prefix and 'decoded/' in prefix:
+            file_type = 'decoded'
         
-        blobs = list(self.gcs_handler.list_blobs(prefix=prefix))
-        if max_blocks and len(blobs) > max_blocks:
-            blobs = blobs[:max_blocks]
-            
-        return [blob.name for blob in blobs]
+        if sync_first:
+            # Sync GCS objects to database
+            self.logger.info(f"Syncing {file_type} GCS objects to database...")
+            count = self.db_manager.sync_gcs_objects(prefix=prefix)
+            self.logger.info(f"Synced {count} GCS objects to database")
+        
+        # Get paths from database
+        paths = self.db_manager.get_available_block_paths(file_type=file_type, limit=max_blocks)
+        self.logger.info(f"Found {len(paths)} blocks in database")
+        
+        return paths
     
-    def sample_blocks(self, count: int, prefix=None) -> List[str]:
+    def sample_blocks(self, count: int, prefix=None, sync_first=True) -> List[str]:
         """
         Sample random blocks from available blocks.
         
+        Args:
+            count: Number of blocks to sample
+            prefix: GCS prefix to sample from
+            sync_first: Whether to sync GCS objects to database first
+            
         Returns:
             List of sampled block paths
         """
-        available_blocks = self.list_available_blocks(prefix)
+        available_blocks = self.list_available_blocks(prefix, sync_first=sync_first)
         
         if not available_blocks:
             self.logger.warning(f"No blocks found with prefix {prefix}")
@@ -100,23 +117,36 @@ class BatchProcessor:
         else:
             return random.sample(available_blocks, count)
     
-    def get_blocks_by_block_numbers(self, block_numbers: List[int], prefix=None) -> List[str]:
+    def get_blocks_by_block_numbers(self, block_numbers: List[int], prefix=None, sync_first=True) -> List[str]:
         """
         Get block paths by block numbers.
+        
+        Args:
+            block_numbers: List of block numbers
+            prefix: GCS prefix
+            sync_first: Whether to sync GCS objects to database first
             
         Returns:
             List of block paths
         """
         prefix = prefix or env.get_rpc_prefix()
+        file_type = 'raw'
+        if 'decoded/' in prefix:
+            file_type = 'decoded'
         
+        if sync_first:
+            # Sync GCS objects to database
+            self.logger.info(f"Syncing {file_type} GCS objects to database...")
+            count = self.db_manager.sync_gcs_objects(prefix=prefix)
+            self.logger.info(f"Synced {count} GCS objects to database")
+        
+        # Get blocks from database
         block_paths = []
         for block_number in block_numbers:
-            path = f"{prefix}{self.handler.build_path_from_block(block_number)}"
-
-            if self.gcs_handler.blob_exists(path):
-                block_paths.append(path)
+            if self.db_manager.block_exists_in_gcs(block_number, file_type):
+                block_paths.append(f"{prefix}block_{block_number}.json")
             else:
-                self.logger.warning(f"Block {block_number} not found at {path}")
+                self.logger.warning(f"Block {block_number} not found in database")
         
         return block_paths
     
@@ -134,7 +164,7 @@ class BatchProcessor:
         blocks = self.db_manager.get_blocks_by_status(status, limit=limit)
         return [block.gcs_path for block in blocks]
 
-    def get_blocks_in_range(self, min_block: int, max_block: int, status: Optional[ProcessingStatus] = None, prefix=None) -> List[str]:
+    def get_blocks_in_range(self, min_block: int, max_block: int, status: Optional[ProcessingStatus] = None, prefix=None, sync_first=True) -> List[str]:
         """
         Get blocks within a specified block number range, optionally filtered by status.
         
@@ -143,6 +173,7 @@ class BatchProcessor:
             max_block: Maximum block number (inclusive)
             status: Optional filter by processing status
             prefix: GCS prefix
+            sync_first: Whether to sync GCS objects to database first
             
         Returns:
             List of block paths
@@ -151,9 +182,20 @@ class BatchProcessor:
         self.logger.info(f"Getting blocks in range {min_block} to {max_block}" + 
                         (f" with status {status.value}" if status else ""))
         
+        file_type = 'raw'
+        if 'decoded/' in prefix:
+            file_type = 'decoded'
+        
+        if sync_first:
+            # Sync GCS objects to database
+            self.logger.info(f"Syncing {file_type} GCS objects to database...")
+            count = self.db_manager.sync_gcs_objects(prefix=prefix)
+            self.logger.info(f"Synced {count} GCS objects to database")
+        
         # If status is provided, query database for blocks in range with that status
         if status:
             with self.db_manager.db.get_session() as session:
+                from indexer.indexer.database.models.status import BlockProcess
                 blocks = session.query(BlockProcess).filter(
                     BlockProcess.block_number >= min_block,
                     BlockProcess.block_number <= max_block
@@ -167,16 +209,13 @@ class BatchProcessor:
                 # Return GCS paths
                 return [block.gcs_path for block in blocks]
         
-        # If no status filter, try to get blocks directly from GCS
-        # This is more efficient when we don't need to filter by status
+        # If no status filter, get blocks directly from GCS objects table
         else:
-            block_paths = []
-            for block_number in range(min_block, max_block + 1):
-                path = f"{prefix}{self.handler.build_path_from_block(block_number)}"
-                if self.gcs_handler.blob_exists(path):
-                    block_paths.append(path)
-            
-            return block_paths
+            return self.db_manager.get_available_block_paths(
+                file_type=file_type,
+                min_block=min_block,
+                max_block=max_block
+            )
     
     def process_blocks(self, block_paths: List[str], batch_size: int = None, force: bool = False) -> Dict[str, Any]:
         """

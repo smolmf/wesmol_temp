@@ -2,6 +2,7 @@ from typing import Tuple, Optional, Dict, Any, List
 import json
 
 from ..env import env
+from ..utils.logging import setup_logger
 from .base import GCSBaseHandler
 
 class BlockHandler():
@@ -11,12 +12,12 @@ class BlockHandler():
         self.gcs_handler = gcs_handler
         self.raw_prefix = raw_prefix or env.get_rpc_prefix()
         self.decoded_prefix = decoded_prefix or env.get_decoded_prefix()
+        self.logger = setup_logger(__name__)
 
     def extract_block_number(self, gcs_path: str) -> int:
         """Extract block number from GCS path."""
-        block_num = gcs_path.split('-')[-1].split('.')[0]
-        return int(block_num.lstrip('0'))
-
+        return env.extract_block_number(gcs_path)
+    
     def build_path_from_block(self, block_number: int) -> str:
         padded_number = str(block_number).zfill(12)
         return f"quicknode_avalanche-mainnet_block_with_receipts_{padded_number}-{padded_number}.json"
@@ -34,6 +35,14 @@ class BlockHandler():
             destination,
             content_type="application/json"
         )
+    
+    def get_raw_block_path(self, block_number: int) -> str:
+        """Generate path for raw block file."""
+        return env.format_raw_block_path(block_number)
+    
+    def get_decoded_block_path(self, block_number: int) -> str:
+        """Generate path for decoded block file."""
+        return env.format_decoded_block_path(block_number)
     
     def get_raw_block(self, block_number: int) -> Optional[bytes]:
         """
