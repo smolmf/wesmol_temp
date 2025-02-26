@@ -57,3 +57,7 @@ class BlockHandler():
         if data:
             return json.loads(data)
         return None
+    
+    def decoded_block_exists(self, block_number: int) -> bool:
+        path = f"{self.decoded_prefix}{block_number}.json"
+        return self.gcs_handler.blob_exists(path)

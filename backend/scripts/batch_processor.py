@@ -43,6 +43,8 @@ def main():
                       help="Filter blocks in range by status")
     parser.add_argument("--limit", type=int, default=100,
                       help="Maximum number of blocks to process for --status (default: 100)")
+    parser.add_argument("--batch-size", type=int, default=None,
+                      help="Process blocks in batches of this size")
     parser.add_argument("--output", type=str, default=None,
                       help="Output file for results (default: auto-generated)")
     
@@ -97,8 +99,8 @@ def main():
     
     logger.info(f"Will process {len(block_paths)} blocks with {args.storage} storage")
     
-    # Process blocks
-    results = batch_processor.process_blocks(block_paths)
+    # Process blocks with batch size control
+    results = batch_processor.process_blocks(block_paths, batch_size=args.batch_size)
     
     # Save results
     batch_processor.save_results(results, args.output)

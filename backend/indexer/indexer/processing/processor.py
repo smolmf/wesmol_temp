@@ -41,7 +41,7 @@ class BlockProcessor:
             return obj.isoformat()
         raise TypeError(f"Type {type(obj)} not serializable")
 
-    def process_block(self, gcs_path: str) -> Tuple[bool, Dict[str, Any]]:
+    def process_block(self, gcs_path: str, force: bool = False) -> Tuple[bool, Dict[str, Any]]:
         """
         Process a block from GCS through validation, decoding, and storage.
         
@@ -59,6 +59,11 @@ class BlockProcessor:
         try:
             block_number = self.handler.extract_block_number(gcs_path)
             self.logger.info(f"Processing block number: {block_number}")
+
+            # Check if decoded block already exists
+            if not force and self.handler.decoded_block_exists(block_number):
+                self.logger.info(f"Block {block_number} already decoded, skipping")
+                return True, {"skipped": True, "reason": "already_decoded"}
 
             self.status_tracker.record_block(
                 block_number=block_number,

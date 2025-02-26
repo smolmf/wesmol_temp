@@ -29,6 +29,10 @@ class LocalBlockHandler(BlockHandler):
         except Exception as e:
             self.logger.error(f"Failed to store decoded block {block_number}: {str(e)}")
             return False
+        
+    def decoded_block_exists(self, block_number: int) -> bool:
+        file_path = self.local_decoded_dir / f"{block_number}.json"
+        return file_path.exists()
     
     def _json_serializer(self, obj):
         """Custom JSON serializer for objects not serializable by default json code"""

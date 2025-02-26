@@ -1,4 +1,5 @@
 import os
+import time
 import random
 import json
 from pathlib import Path
@@ -177,12 +178,14 @@ class BatchProcessor:
             
             return block_paths
     
-    def process_blocks(self, block_paths: List[str]) -> Dict[str, Any]:
+    def process_blocks(self, block_paths: List[str], batch_size: int = None, force: bool = False) -> Dict[str, Any]:
         """
-        Process a batch of blocks.
+        Process a batch of blocks, optionally breaking into smaller batches.
         
         Args:
             block_paths: List of block paths to process
+            batch_size: Maximum number of blocks to process in a single batch
+                    (None = process all at once)
             
         Returns:
             Processing results
@@ -192,6 +195,7 @@ class BatchProcessor:
             "success": 0,
             "failure": 0,
             "started_at": datetime.now().isoformat(),
+            "batches": [],
             "details": []
         }
         
@@ -199,38 +203,166 @@ class BatchProcessor:
             self.logger.warning("No blocks to process")
             return results
         
-        self.logger.info(f"Processing {len(block_paths)} blocks...")
+        # Calculate batches
+        if batch_size and batch_size < len(block_paths):
+            batches = [block_paths[i:i + batch_size] for i in range(0, len(block_paths), batch_size)]
+            self.logger.info(f"Processing {len(block_paths)} blocks in {len(batches)} batches of up to {batch_size} blocks each")
+        else:
+            batches = [block_paths]
+            self.logger.info(f"Processing {len(block_paths)} blocks in a single batch")
         
-        for path in tqdm(block_paths, desc="Processing blocks"):
-            try:
-                success, result_info = self.processor.process_block(path)
-                
-                if success:
-                    results["success"] += 1
-                else:
-                    results["failure"] += 1
-                    
-                results["details"].append({
-                    "path": path,
-                    "success": success,
-                    "info": result_info
-                })
-            except Exception as e:
-                self.logger.error(f"Error processing {path}: {str(e)}")
-                results["failure"] += 1
-                results["details"].append({
-                    "path": path,
-                    "success": False,
-                    "error": str(e)
-                })
+        # Process each batch
+        for batch_index, batch in enumerate(batches):
+            batch_start_time = datetime.now()
+            self.logger.info(f"Processing batch {batch_index + 1}/{len(batches)} with {len(batch)} blocks")
+            
+            batch_results = {
+                "batch_index": batch_index + 1,
+                "batch_size": len(batch),
+                "success": 0,
+                "failure": 0,
+                "started_at": batch_start_time.isoformat(),
+                "blocks": []
+            }
+            
+            # Process each block with progress bar and periodic status updates
+            total_blocks = len(batch)
+            status_interval = max(1, min(100, total_blocks // 10))  # Update every ~10% of batch
+            last_status_time = time.time()
+            status_update_interval = 60  # Status update every minute for long batches
+            
+            with tqdm(total=total_blocks, desc=f"Batch {batch_index + 1}/{len(batches)}") as progress:
+                for i, path in enumerate(batch):
+                    try:
+                        # Process block
+                        block_number = self.processor.handler.extract_block_number(path)
+                        
+                        # Check if decoded block already exists
+                        skip_processing = False
+                        if not force and hasattr(self.processor.handler, 'decoded_block_exists'):
+                            if self.processor.handler.decoded_block_exists(block_number):
+                                self.logger.debug(f"Block {block_number} already decoded, skipping")
+                                skip_processing = True
+                                results["skipped"] += 1
+                                batch_results["skipped"] += 1
+                                
+                                block_result = {
+                                    "path": path,
+                                    "block_number": block_number,
+                                    "success": True,
+                                    "skipped": True,
+                                    "reason": "already_decoded"
+                                }
+                                
+                                results["details"].append(block_result)
+                                batch_results["blocks"].append(block_result)
+                        
+                        if not skip_processing:
+                            # Process the block
+                            success, result_info = self.processor.process_block(path)
+                            
+                            block_result = {
+                                "path": path,
+                                "block_number": block_number,
+                                "success": success,
+                                "info": result_info
+                            }
+                            
+                            if success:
+                                results["success"] += 1
+                                batch_results["success"] += 1
+                            else:
+                                results["failure"] += 1
+                                batch_results["failure"] += 1
+                            
+                            results["details"].append(block_result)
+                            batch_results["blocks"].append(block_result)
+                        
+                        # Update progress
+                        progress.update(1)
+                        
+                        # Periodic status updates for long-running batches
+                        current_time = time.time()
+                        blocks_processed = i + 1
+                        
+                        if (blocks_processed % status_interval == 0 or 
+                            current_time - last_status_time > status_update_interval):
+                            
+                            completion_percentage = (blocks_processed / total_blocks) * 100
+                            elapsed_time = current_time - batch_start_time.timestamp()
+                            blocks_per_second = blocks_processed / elapsed_time if elapsed_time > 0 else 0
+                            
+                            est_remaining_seconds = (total_blocks - blocks_processed) / blocks_per_second if blocks_per_second > 0 else float('inf')
+                            est_remaining = str(datetime.timedelta(seconds=int(est_remaining_seconds)))
+                            
+                            self.logger.info(
+                                f"Status update: {blocks_processed}/{total_blocks} blocks processed "
+                                f"({completion_percentage:.1f}%) - "
+                                f"{batch_results['success']} successful, {batch_results['failure']} failed, "
+                                f"{batch_results['skipped']} skipped. "
+                                f"Rate: {blocks_per_second:.2f} blocks/sec. "
+                                f"Est. remaining: {est_remaining}"
+                            )
+                            
+                            last_status_time = current_time
+                        
+                    except Exception as e:
+                        self.logger.error(f"Error processing {path}: {str(e)}")
+                        results["failure"] += 1
+                        batch_results["failure"] += 1
+                        
+                        try:
+                            block_number = self.processor.handler.extract_block_number(path)
+                        except:
+                            block_number = None
+                        
+                        error_result = {
+                            "path": path,
+                            "block_number": block_number,
+                            "success": False,
+                            "error": str(e)
+                        }
+                        
+                        results["details"].append(error_result)
+                        batch_results["blocks"].append(error_result)
+                        progress.update(1)
+            
+            # Finalize batch results
+            batch_end_time = datetime.now()
+            batch_results["ended_at"] = batch_end_time.isoformat()
+            batch_results["duration_seconds"] = (batch_end_time - batch_start_time).total_seconds()
+            
+            # Log batch summary
+            self.logger.info(
+                f"Batch {batch_index + 1} complete: "
+                f"{batch_results['success']} successful, "
+                f"{batch_results['failure']} failed, "
+                f"{batch_results['skipped']} skipped, "
+                f"in {batch_results['duration_seconds']:.2f} seconds"
+            )
+            
+            # Add to overall results
+            results["batches"].append(batch_results)
+            
+            # Optional: Add a brief pause between batches
+            if batch_index < len(batches) - 1:
+                time.sleep(1)  # Prevent potential resource contention
         
+        # Finalize overall results
         results["ended_at"] = datetime.now().isoformat()
         results["duration_seconds"] = (
             datetime.fromisoformat(results["ended_at"]) - 
             datetime.fromisoformat(results["started_at"])
         ).total_seconds()
         
-        self.logger.info(f"Processing complete: {results['success']} successful, {results['failure']} failed")
+        # Log overall summary
+        self.logger.info(
+            f"Processing complete: "
+            f"{results['success']} successful, "
+            f"{results['failure']} failed, "
+            f"in {results['duration_seconds']:.2f} seconds"
+        )
+        
         return results
     
     def save_results(self, results: Dict[str, Any], output_file: Optional[str] = None) -> str:
